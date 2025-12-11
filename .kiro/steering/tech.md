@@ -17,6 +17,28 @@
 - `symfony/runtime`: Modern application runtime
 - `symfony/yaml`: YAML configuration support
 
+### Autenticación JWT
+- `symfony/security-bundle`
+- `lexik/jwt-authentication-bundle`
+
+### Base de datos ORM
+- `doctrine/orm`
+- `doctrine/doctrine-bundle`
+- `doctrine/doctrine-migrations-bundle`
+
+### API REST
+- `symfony/serializer`
+- `nelmio/api-doc-bundle`  # Para OpenAPI/Swagger
+- `nelmio/cors-bundle`     # Para CORS
+
+### Validación
+- `symfony/validator`
+
+### Testing
+- `phpunit/phpunit`
+- `doctrine/doctrine-fixtures-bundle
+
+
 ## Development Environment
 
 ### Docker Setup
@@ -45,6 +67,19 @@ bin/console [command]
 
 # Access application
 http://localhost:8060
+
+# Database commands
+bin/console doctrine:database:create
+bin/console doctrine:migrations:migrate
+bin/console doctrine:fixtures:load
+
+# JWT setup
+bin/console lexik:jwt:generate-keypair
+
+# Testing
+bin/console --env=test doctrine:database:create
+vendor/bin/phpunit
+
 ```
 
 ### Environment Configuration

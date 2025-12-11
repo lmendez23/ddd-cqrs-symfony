@@ -5,7 +5,11 @@
 ```
 ├── bin/                    # Executable scripts (console commands)
 ├── config/                 # Application configuration
+│   ├── jwt/                # JWT keys
 │   ├── packages/           # Bundle-specific configuration
+│   │   ├── doctrine.yaml
+│   │   ├── security.yaml
+│   │   └── nelmio_api_doc.yaml
 │   ├── routes/             # Route definitions
 │   ├── bundles.php         # Bundle registration
 │   ├── services.yaml       # Service container configuration

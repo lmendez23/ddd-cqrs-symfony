@@ -1,4 +1,28 @@
-# Project Structure
+---
+inclusion: always
+---
+
+# Project Structure & Architecture Guide
+
+## CRITICAL RULES FOR AI ASSISTANT
+
+### File Placement Rules
+- **NEVER** place files outside their designated layer boundaries
+- **Domain layer**: No Symfony, Doctrine, or infrastructure dependencies
+- **Application layer**: Only domain contracts, never concrete infrastructure
+- **Infrastructure layer**: Framework-specific implementations only
+
+### Bounded Context Rules
+- Use existing contexts: `User`, `Character`, `Planet` (from product.md)
+- Create new files within appropriate context: `src/{Context}/{Layer}/{Type}/`
+- Shared code goes in `src/Shared/` only if used by multiple contexts
+
+### Naming Conventions (ENFORCE STRICTLY)
+- Commands: `{Verb}{Entity}Command.php` (e.g., `CreateCharacterCommand.php`)
+- Queries: `{Verb}{Entity}Query.php` (e.g., `GetCharacterByIdQuery.php`)
+- Handlers: `{CommandOrQuery}Handler.php` (e.g., `CreateCharacterCommandHandler.php`)
+- Controllers: `{Entity}Controller.php` (e.g., `CharacterController.php`)
+- Domain Models: Entity names (e.g., `Character.php`, `Planet.php`)
 
 ## Root Directory Layout
 
@@ -90,88 +114,116 @@ The `Shared` namespace contains concepts and infrastructure reused across multip
 - `Shared\Infrastructure`:
   - Technical adapters like shared Doctrine types, base repositories, HTTP clients (Guzzle) and common Symfony controllers or middleware.
 
-## Hexagonal Architecture Rules
+## Hexagonal Architecture - Layer Dependencies (ENFORCE)
 
-To enforce Hexagonal Architecture, the following dependency rules apply:  
+**STRICT DEPENDENCY RULES:**
 
-- **Domain layer**:
-  - Must not depend on Symfony, Doctrine, HTTP, or any infrastructure library.
-  - Contains only domain models (`Model`), domain events and domain contracts (interfaces in `Contracts`).  
-- **Application layer**:
-  - Coordinates use cases using domain contracts and models.
-  - Depends on `Domain` but never on concrete infrastructure implementations.
-  - Contains:
-    - `Command/`: write operations (create, update, delete).
-    - `Query/`: read operations focused on returning data.
-    - `Event/`: application-level events if needed.  
-- **Infrastructure layer**:
-  - Implements the contracts defined in `Domain` and `Application`.
-  - Can depend on Symfony, Doctrine, Guzzle, Messenger, etc.
-  - Maps the outside world (HTTP, DB, queues) to the inner layers.
+### Domain Layer (`src/{Context}/Domain/`)
+- **ALLOWED**: Only PHP standard library, domain contracts within same context
+- **FORBIDDEN**: Symfony, Doctrine, HTTP, any framework dependencies
+- **CONTAINS**: Entities, Value Objects, Domain Events, Repository Interfaces
+- **EXAMPLE**: `src/Character/Domain/Model/Character.php`
 
-Data flow should follow:
+### Application Layer (`src/{Context}/Application/`)
+- **ALLOWED**: Domain layer, application contracts
+- **FORBIDDEN**: Concrete infrastructure implementations (Doctrine entities, HTTP requests)
+- **CONTAINS**: Command/Query handlers, Application services
+- **EXAMPLE**: `src/Character/Application/Command/CreateCharacterCommandHandler.php`
 
-> HTTP / CLI / Message → Infrastructure (Symfony controller / command / consumer) → Application (Command/Query handler) → Domain (models, domain services, repositories via interfaces) → back through Infrastructure adapters.  
+### Infrastructure Layer (`src/{Context}/Infrastructure/`)
+- **ALLOWED**: All layers, framework dependencies
+- **CONTAINS**: Controllers, Doctrine entities, Repository implementations
+- **EXAMPLE**: `src/Character/Infrastructure/Symfony/Controller/CharacterController.php`
 
-## CQRS Conventions
+**Data Flow (ALWAYS FOLLOW):**
+```
+HTTP Request → Controller → Command/Query Handler → Domain Service → Repository Interface → Repository Implementation
+```  
 
-The project uses CQRS to clearly split write and read responsibilities:  
+## CQRS Implementation Rules
 
-- **Commands**:
-  - Represent intent to change system state.
-  - Live in `<ContextName>\Application\Command`.
-  - Are handled by dedicated handlers (for example, `FooCommandHandler`) that:
-    - Validate intent at the application level.
-    - Call domain logic via aggregates and domain services.
-    - Persist changes using repository contracts.  
-- **Queries**:
-  - Represent read operations, optimized for returning data.
-  - Live in `<ContextName>\Application\Query`.
-  - Are handled by `QueryHandler` classes that:
-    - Do not change state.
-    - May read from optimized views or projections if required.  
-- **Controllers / Adapters**:
-  - Live under `<ContextName>\Infrastructure\Symfony\Controller`.
-  - For write endpoints:
-    - Build a Command from the HTTP request.
-    - Dispatch the Command to its handler (for example, via Symfony Messenger or direct service call).
-  - For read endpoints:
-    - Build a Query from request parameters.
-    - Invoke the appropriate QueryHandler and return a serialized response.
+### Commands (Write Operations)
+- **Location**: `src/{Context}/Application/Command/`
+- **Purpose**: Change system state (Create, Update, Delete)
+- **Naming**: `{Verb}{Entity}Command.php`
+- **Handler**: `{Command}Handler.php` in same directory
+- **Example**: 
+  ```php
+  // src/Character/Application/Command/CreateCharacterCommand.php
+  // src/Character/Application/Command/CreateCharacterCommandHandler.php
+  ```
 
-### Configuration Structure
-- **`config/packages/`**: Framework and bundle configurations
-- **`config/routes/`**: Route definitions (if not using attributes)
-- **`config/services.yaml`**: Main service container configuration
-  - Service registration and autowiring rules.
-  - Ensures handlers and controllers under the `src/` structure are auto-discovered as services.
-  - Can be used to enforce layer boundaries (for example, by service naming or tags).
-- **Auto-configuration**: `_defaults` should be set so that:
-    - Controllers in `Infrastructure\Symfony\Controller` are automatically tagged as `controller.service_arguments`.  
-    - Command and Query handlers in `Application` are autowired and optionally tagged for Messenger if used.
+### Queries (Read Operations)
+- **Location**: `src/{Context}/Application/Query/`
+- **Purpose**: Retrieve data without state changes
+- **Naming**: `{Action}{Entity}Query.php`
+- **Handler**: `{Query}Handler.php` in same directory
+- **Example**:
+  ```php
+  // src/Character/Application/Query/GetCharacterByIdQuery.php
+  // src/Character/Application/Query/GetCharacterByIdQueryHandler.php
+  ```
 
-## Key Conventions
+### Controllers (HTTP Adapters)
+- **Location**: `src/{Context}/Infrastructure/Symfony/Controller/`
+- **Responsibility**: Convert HTTP requests to Commands/Queries
+- **Pattern**: 
+  - Build Command/Query from request
+  - Dispatch to handler
+  - Return HTTP response
+- **Example**: `src/Character/Infrastructure/Symfony/Controller/CharacterController.php`
 
-### File Naming
-- Controllers: `SomethingController.php`
-- Commands / Queries: Verb-based names like `CreateOrderCommand.php`, `GetOrderByIdQuery.php`.  
-- Handlers: Match their command or query, for example `CreateOrderCommandHandler.php`.  
-- Domain models: Ubiquitous language names, for example `Order.php`, `OrderLine.php`. 
-- Configuration: YAML format preferred
+## File Creation Guidelines
 
-### Namespace Structure
-- Root namespace: `App\`.  
-- Shareable code: `App\Shared\...`.  
-- Bounded context: `App\<ContextName>\Domain`, `App\<ContextName>\Application`, `App\<ContextName>\Infrastructure`.
+### When Creating New Features
+1. **Identify Context**: Use `User`, `Character`, or `Planet` (or create new if justified)
+2. **Choose Layer**: Domain → Application → Infrastructure (inside-out approach)
+3. **Follow Structure**: Always use the prescribed directory structure
+4. **Check Dependencies**: Ensure no layer violations
 
-### Environment Files
-- `.env`: Committed defaults
-- `.env.local`: Local overrides (gitignored)
-- `.env.{environment}`: Environment-specific settings (for example, `.env.prod`).
+### Required File Patterns
+- **Domain Entity**: `src/{Context}/Domain/Model/{Entity}.php`
+- **Repository Interface**: `src/{Context}/Domain/Contracts/{Entity}RepositoryInterface.php`
+- **Command**: `src/{Context}/Application/Command/{Verb}{Entity}Command.php`
+- **Command Handler**: `src/{Context}/Application/Command/{Verb}{Entity}CommandHandler.php`
+- **Query**: `src/{Context}/Application/Query/{Action}{Entity}Query.php`
+- **Query Handler**: `src/{Context}/Application/Query/{Action}{Entity}QueryHandler.php`
+- **Controller**: `src/{Context}/Infrastructure/Symfony/Controller/{Entity}Controller.php`
+- **Doctrine Entity**: `src/{Context}/Infrastructure/Doctrine/Entity/{Entity}.php`
+- **Repository Implementation**: `src/{Context}/Infrastructure/Doctrine/Repository/{Entity}Repository.php`
 
-## Docker Structure
+### Namespace Rules
+- **Root**: `App\`
+- **Context**: `App\{Context}\`
+- **Layer**: `App\{Context}\{Layer}\`
+- **Type**: `App\{Context}\{Layer}\{Type}\`
 
-- **Multi-stage builds** to keep production images small.  
-- **Volume mounts** for local development so that code changes are reflected immediately.  
-- **Health checks** to monitor the state of PHP-FPM, web server and dependencies.  
-- Optional process **supervisor** if background workers (queue consumers, schedulers) are needed.
+### Configuration Files
+- **Services**: Auto-discovery enabled for `src/` directory
+- **Routes**: Use PHP attributes on controllers (preferred) or `config/routes/`
+- **Doctrine**: Mapping in `src/{Context}/Infrastructure/Doctrine/Mapping/`
+
+## Code Quality Rules
+
+### PSR Standards
+- **PSR-4**: Autoloading (strictly enforced)
+- **PSR-12**: Coding style
+- **Type Declarations**: Always use strict types (`declare(strict_types=1);`)
+
+### Symfony Conventions
+- **Route Attributes**: Use `#[Route]` on controller methods
+- **Service Autowiring**: Enabled by default for `src/` directory
+- **Environment Variables**: Use `.env` files, access via `$_ENV` or DI
+
+### Testing Structure
+- **Unit Tests**: `tests/Unit/{Context}/{Layer}/`
+- **Integration Tests**: `tests/Integration/{Context}/`
+- **Coverage**: >90% for Domain/Application layers
+
+## Common Mistakes to Avoid
+
+1. **Layer Violations**: Never import Doctrine entities in Domain layer
+2. **Wrong Placement**: Don't put business logic in controllers
+3. **Naming Inconsistency**: Always follow the prescribed naming patterns
+4. **Missing Interfaces**: Always define repository interfaces in Domain layer
+5. **Direct DB Access**: Always use repository pattern, never direct Doctrine queries in controllers

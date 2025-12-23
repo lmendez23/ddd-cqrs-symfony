@@ -1,115 +1,120 @@
-# Product Overview
+---
+inclusion: always
+---
 
-This is a Symfony 7.4 web application built with PHP 8.5. The project follows a minimal Symfony setup using the MicroKernelTrait for a lightweight, modern web application architecture.
+# Dragon Ball API - Product Guide
 
-## Key Characteristics
+## Project Overview
 
-- **Framework**: Symfony 7.4 with minimal dependencies
-- **Runtime**: PHP 8.5 with FPM
-- **Architecture**: Microkernel pattern for streamlined application structure
-- **Environment**: Dockerized development environment with MySQL database
-- **Deployment**: Production-ready with Docker containers and Supervisor process management
+**Dragon Ball API** is a REST API providing access to Dragon Ball universe characters and planets for external consumers (mobile apps, websites, dashboards). Built with Symfony 7.4 and PHP 8.5 following Hexagonal Architecture + DDD + CQRS patterns.
 
-The application is designed as a clean, modern Symfony project with standard MVC patterns and follows Symfony best practices for configuration, routing, and dependency injection.
+## Core Domain Contexts
 
-# Product Vision
+When implementing features, organize code within these bounded contexts:
 
-## Overview
+| Context | Responsibility | Key Entities | Example Use Cases |
+|---------|---------------|--------------|-------------------|
+| `User` | Authentication & user management | User, RefreshToken | Register, login, JWT generation, password reset |
+| `Character` | Dragon Ball character management | Character | CRUD operations, search by name/gender/race/group |
+| `Planet` | Dragon Ball planet management | Planet | CRUD operations, search by name/status |
 
-**Dragon Ball API** es una API REST que proporciona acceso a personajes y planetas del universo Dragon Ball para consumidores externos (apps móviles, sitios web, dashboards).
+## API Design Standards
 
-**Usuarios principales**:
-- Desarrolladores de apps Dragon Ball (móviles, web)
-- Fans que construyen sitios de datos, quizzes, enciclopedias
-- Need: Datos estructurados, búsqueda potente, imágenes oficiales, actualizaciones periódicas
+### Endpoint Conventions
+- **Base URL**: `/api/v1/`
+- **Authentication**: JWT Bearer tokens (15min expiry) + refresh tokens (7d expiry)
+- **Pagination**: Standard `?page=1&limit=20` (default limit: 20, max: 100)
+- **Rate Limiting**: 100 requests/minute per authenticated user
+- **Versioning**: URL-based versioning (`/api/v1/`, `/api/v2/`)
 
-## Key Business Goals
-
-- Proporcionar API completa de Dragon Ball con >95% cobertura de personajes/planetas conocidos
-- Soporte para 1k concurrent requests con p95 < 150ms
-- Fácil integración: JWT auth, paginación estándar, OpenAPI docs auto-generados
-
-## Core Bounded Contexts
-
-| Bounded Context | Responsabilidad Principal | Ejemplos de Casos de Uso |
-|-----------------|---------------------------|--------------------------|
-| `User`          | Autenticación y gestión de usuarios | Register, login, forgot password, JWT token generation |
-| `Character`     | Gestión completa de personajes Dragon Ball | CRUD, search by name/gender/race/group, image + description |
-| `Planet`        | Gestión completa de planetas Dragon Ball | CRUD, search by name/status, image + description |
-
-## Functional Requirements (High-Level)
-
-### Must-Have Features
-- **Autenticación**: JWT + OAuth2 con refresh tokens [15min expiry, 7d refresh]
-- **API REST**: Versionado `/api/v1/`, paginación estándar (`?page=1&limit=20`), rate limiting (100 req/min por user)
-- **Búsqueda avanzada**: 
-  - Characters: `?name=Vegeta&gender=male&race=saiyan&group=Z`
-  - Planets: `?name=Namek&status=active`
-- **Multimedia**: URL de imagen oficial + descripción rica por cada entidad
-
-### Non-Functional Requirements
-Performance: p99 < 200ms queries, < 500ms writes
-Scalability: Soporte para 1k concurrent users
-Availability: 99.9% uptime
-Data Consistency: Strong consistency para auth, eventual para imports
-Security: OWASP Top 10 compliance, secrets en Vault/KMS
-
-
-## MVP Scope (Minimum Viable Product)
-
-**Fase 1** (primer sprint con Kiro):
-✅ User: register, login, forgot password → JWT + refresh token
-✅ Character: CRUD personajes, búsqueda por nombre/género/raza/grupo, descripción + imagen URL
-✅ Planet: CRUD planetas, búsqueda por nombre/estado, descripción + imagen URL
-
-
-**Fase 2** (post-MVP):
-- ImportCommand: Sincronizar personajes/planetas desde API externa
-- Domain events: CharacterCreated → notify external systems
-
-**Acceptance Criteria**:
-- 100% coverage en Domain + Application layers
-- Tests pasan en < 2min en GitLab CI
-- API docs generada automáticamente (OpenAPI/Swagger)
-- Logs estructurados JSON con trace_id
-
-## API Endpoints Preview (v1)
+### Required Endpoints (MVP)
 
 ```
+# Authentication
 POST /api/v1/auth/register
 POST /api/v1/auth/login
+POST /api/v1/auth/refresh
 POST /api/v1/auth/forgot-password
 
-GET /api/v1/characters → paginated list
-GET /api/v1/characters/{id}
-POST /api/v1/characters → create
-PUT /api/v1/characters/{id} → update
+# Characters
+GET    /api/v1/characters
+GET    /api/v1/characters/{id}
+POST   /api/v1/characters
+PUT    /api/v1/characters/{id}
 DELETE /api/v1/characters/{id}
-GET /api/v1/characters?search=vegeta&gender=male&race=saiyan
 
-GET /api/v1/planets → paginated list
-GET /api/v1/planets/{id}
-POST /api/v1/planets
-PUT /api/v1/planets/{id}
+# Planets
+GET    /api/v1/planets
+GET    /api/v1/planets/{id}
+POST   /api/v1/planets
+PUT    /api/v1/planets/{id}
 DELETE /api/v1/planets/{id}
-GET /api/v1/planets?search=namek&status=active
 ```
 
+### Search Parameters
+- **Characters**: `?search=name&gender=male&race=saiyan&group=Z`
+- **Planets**: `?search=name&status=active`
 
-## Out of Scope (No implementar sin aprobación explícita)
+## Implementation Guidelines
 
-- Import desde API externa (Fase 2)
-- Real-time WebSockets
-- Machine Learning recommendations
-- Mobile app / Frontend
-- Legacy data migration
+### Performance Requirements
+- **Response Times**: p95 < 150ms for queries, p99 < 200ms
+- **Write Operations**: < 500ms
+- **Concurrent Users**: Support 1k concurrent requests
+- **Availability**: 99.9% uptime target
+
+### Security Standards
+- Follow OWASP Top 10 compliance
+- JWT tokens with proper expiration
+- Input validation on all endpoints
+- Rate limiting per user
+- Secure password hashing (bcrypt/argon2)
+
+### Data Requirements
+- **Characters**: name, gender, race, group, description, image_url
+- **Planets**: name, status, description, image_url
+- **Users**: email, password, created_at, updated_at
+- All entities require UUID primary keys
+
+### Testing Standards
+- **Coverage**: >90% Domain/Application layers, >70% Infrastructure
+- **Test Types**: Unit tests for domain logic, integration tests for API endpoints
+- **Performance**: Test suite must complete in <2 minutes
+- **API Documentation**: Auto-generated OpenAPI/Swagger docs
+
+## Development Priorities
+
+### Phase 1 (Current MVP)
+1. User authentication system with JWT
+2. Character CRUD with search functionality
+3. Planet CRUD with search functionality
+4. API documentation generation
+5. Basic rate limiting and validation
+
+### Phase 2 (Future)
+- External API import commands
+- Domain events (CharacterCreated, etc.)
+- Advanced search filters
+- Caching layer implementation
+
+### Explicitly Out of Scope
+- Real-time WebSocket features
+- Machine learning recommendations
+- Frontend/mobile applications
+- Legacy data migration tools
+- Social features (comments, ratings)
+
+## Quality Gates
+
+Before considering any feature complete:
+- [ ] All tests pass with required coverage
+- [ ] API endpoints documented in OpenAPI spec
+- [ ] Performance requirements met in staging
+- [ ] Security review completed
+- [ ] Error handling and logging implemented
 
 ## Success Metrics
-
-- Tiempo de onboarding nuevo developer: < 2 días
-- Tiempo respuesta API: p95 < 150ms en staging
-- Error rate: < 0.1% en production
-- Coverage: > 90% Domain/Application, > 70% Infrastructure
-
----
-*Last updated: 2025-12-11. Review before major features.*
+- Developer onboarding: <2 days
+- API response time: p95 <150ms in staging
+- Error rate: <0.1% in production
+- Test coverage: >90% Domain/Application layers

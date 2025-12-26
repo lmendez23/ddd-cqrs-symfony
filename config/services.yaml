@@ -21,3 +21,37 @@ services:
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
+
+    # Command and Query Bus configuration
+    App\Shared\Domain\Contracts\CommandBusInterface:
+        alias: App\Shared\Infrastructure\Symfony\Bus\CommandBus
+
+    App\Shared\Domain\Contracts\QueryBusInterface:
+        alias: App\Shared\Infrastructure\Symfony\Bus\QueryBus
+
+    App\Shared\Infrastructure\Symfony\Bus\CommandBus:
+        arguments:
+            $commandBus: '@command.bus'
+
+    App\Shared\Infrastructure\Symfony\Bus\QueryBus:
+        arguments:
+            $queryBus: '@query.bus'
+
+    # Password hasher service
+    App\Shared\Domain\Contracts\PasswordHasherInterface:
+        alias: App\Shared\Infrastructure\Symfony\Security\PasswordHasher
+
+    # Exception listener
+    App\Shared\Infrastructure\Symfony\Exception\ExceptionListener:
+        tags:
+            - { name: kernel.event_listener, event: kernel.exception }
+
+    # Rate limiting middleware
+    App\Shared\Infrastructure\Symfony\Http\RateLimitMiddleware:
+        tags:
+            - { name: kernel.event_listener, event: kernel.request, priority: 10 }
+
+    # Input validation middleware
+    App\Shared\Infrastructure\Symfony\Http\ValidationMiddleware:
+        tags:
+            - { name: kernel.event_listener, event: kernel.request, priority: 20 }

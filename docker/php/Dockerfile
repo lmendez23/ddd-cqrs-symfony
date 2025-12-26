@@ -16,7 +16,7 @@ RUN set -eux; \
         zlib1g-dev \
         libzip-dev; \
     docker-php-ext-configure zip; \
-    docker-php-ext-install zip; \
+    docker-php-ext-install zip pdo pdo_mysql; \
     apt-get clean; \
     rm -rf /var/lib/apt/lists/*
 
